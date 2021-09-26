@@ -30,7 +30,7 @@ public class TwitterProducer {
     Logger LOG = LoggerFactory.getLogger(TwitterProducer.class);
 
     private static final String PRODUCER_CONFIG = "producer_config.properties";
-    private final List<String> twitterTerms = Lists.newArrayList("Biden", "Trump");
+    private static final List<String> twitterTerms = Lists.newArrayList("Biden", "Trump");
 
     /**
      * Main method to trigger Twitter Producer.
@@ -116,29 +116,31 @@ public class TwitterProducer {
     private KafkaProducer<String, String> createKafkaProducer() throws IOException {
 
         // create Producers properties
-        Properties properties = new Properties();
-        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getProducerProperties().getProperty("bootstrap.server"));
-        properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        Properties kafkaProperties = new Properties();
+        Properties producerConfigProperties = getProducerProperties();
+
+        kafkaProperties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, producerConfigProperties.getProperty("twitter.producer.bootstrap.server"));
+        kafkaProperties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        kafkaProperties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
         // Safe Producer - Enable Idempotence
-        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, Boolean.toString(true));
+        kafkaProperties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, Boolean.toString(true));
 
         //https://stackoverflow.com/questions/64402428/getting-acks-1-when-i-set-acks-to-all-in-my-kafka-producer
         // For producer config, acks property of -1 is equal to all.
-        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        kafkaProperties.setProperty(ProducerConfig.ACKS_CONFIG, producerConfigProperties.getProperty("twitter.producer.topic.acks"));
 
         // These properties are by default available in Kafka 2.0
-        properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
-        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, Integer.toString(5));
+        kafkaProperties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+        kafkaProperties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, Integer.toString(5));
 
         // High throughput producer (at the expense of the bit of latency and CPU usage)
         //properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
-        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
-        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024)); //32 KB batch size
+        kafkaProperties.setProperty(ProducerConfig.LINGER_MS_CONFIG, producerConfigProperties.getProperty("twitter.producer.linger.ms.config"));
+        kafkaProperties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024)); //32 KB batch size
 
         //create Producer
-        return new KafkaProducer<>(properties);
+        return new KafkaProducer<>(kafkaProperties);
     }
 
     private String fetchTweetFromJSON(String jsonData) {
